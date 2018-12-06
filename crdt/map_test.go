@@ -80,11 +80,9 @@ func TestMapExecuteOpInsertDupe(t *testing.T) {
 	m2 := m1.Replicate(2)
 	op := m1.Insert(123, 2222)
 	m2.ExecuteOp(op)
-	m3 := m2.Replicate(3)
 	lop, ok := m2.ExecuteOp(op)
 	assert.True(t, ok)
 	assert.Equal(t, LocalMapOp{true, 123, 2222}, lop)
-	assert.True(t, m2.Eq(m3))
 	assert.True(t, m1.Eq(m2))
 }
 
@@ -103,5 +101,53 @@ func TestMapExecuteOpRemove(t *testing.T) {
 }
 
 func TestMapExecuteOpRemoveDoesNotExist(t *testing.T) {
+	m1 := NewMap(1)
+	m2 := m1.Replicate(2)
+	m1.Insert(123, 2222)
+	op, ok1 := m1.Remove(123)
+	assert.True(t, ok1)
+	state := m2.state.clone()
+	lop, ok2 := m2.ExecuteOp(op)
+	assert.True(t, ok2)
+	assert.Equal(t, LocalMapOp{false, 123, nil}, lop)
+	assert.Equal(t, 0, m2.Len())
+	assert.True(t, m2.state.eq(state))
+}
 
+func TestMapExecuteOpRemoveSomeDotsRemain(t *testing.T) {
+	m1 := NewMap(1)
+	m2 := m1.Replicate(2)
+	m3 := m1.Replicate(3)
+	op1 := m2.Insert(123, 1111)
+	op2 := m1.Insert(123, 2222)
+	op3, ok1 := m1.Remove(123)
+	assert.True(t, ok1)
+	lop1, ok2 := m3.ExecuteOp(op1)
+	assert.True(t, ok2)
+	assert.Equal(t, LocalMapOp{true, 123, 1111}, lop1)
+	lop2, ok3 := m3.ExecuteOp(op2)
+	assert.True(t, ok3)
+	assert.Equal(t, LocalMapOp{true, 123, 2222}, lop2)
+	lop3, ok4 := m3.ExecuteOp(op3)
+	assert.True(t, ok4)
+	assert.Equal(t, LocalMapOp{true, 123, 1111}, lop3)
+}
+
+func TestMapExecuteOpRemoveDupe(t *testing.T) {
+	m1 := NewMap(1)
+	m2 := m1.Replicate(2)
+	op1 := m1.Insert(123, 2222)
+	op2, ok1 := m1.Remove(123)
+	assert.True(t, ok1)
+	lop1, ok2 := m2.ExecuteOp(op1)
+	assert.True(t, ok2)
+	assert.Equal(t, LocalMapOp{true, 123, 2222}, lop1)
+	lop2, ok3 := m2.ExecuteOp(op2)
+	assert.True(t, ok3)
+	assert.Equal(t, LocalMapOp{false, 123, nil}, lop2)
+	lop3, ok4 := m2.ExecuteOp(op2)
+	assert.True(t, ok4)
+	assert.Equal(t, LocalMapOp{false, 123, nil}, lop3)
+	assert.Equal(t, 0, m1.Len())
+	assert.Equal(t, 0, m2.Len())
 }

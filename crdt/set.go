@@ -164,11 +164,8 @@ func (s *setState) values() []interface{} {
 }
 
 func (s *setState) eq(state *setState) bool {
-	if s.set == nil && state.set == nil {
+	if len(s.set) == 0 && len(state.set) == 0 {
 		return true
-	}
-	if s.set == nil || state.set == nil {
-		return false
 	}
 	if len(s.set) != len(state.set) {
 		return false

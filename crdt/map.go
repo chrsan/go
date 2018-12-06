@@ -205,11 +205,8 @@ func (s *mapState) values() []MapEntry {
 }
 
 func (s *mapState) eq(state *mapState) bool {
-	if s.m == nil && state.m == nil {
+	if len(s.m) == 0 && len(state.m) == 0 {
 		return true
-	}
-	if s.m == nil || state.m == nil {
-		return false
 	}
 	if len(s.m) != len(state.m) {
 		return false
