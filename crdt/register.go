@@ -90,10 +90,10 @@ func (r *Register) Eq(register *Register) bool {
 	ok := true
 	r.elements.Ascend(func(item btree.Item) bool {
 		e := item.(elem)
-		v := register.elements.Get(elem{id: e.id})
-		if v == nil {
+		i := register.elements.Get(elem{id: e.id})
+		if i == nil {
 			ok = false
-		} else if *e.v != *(v.(elem).v) {
+		} else if *e.v != *(i.(elem).v) {
 			ok = false
 		}
 		return ok

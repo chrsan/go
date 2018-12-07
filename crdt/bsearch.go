@@ -1,6 +1,6 @@
 package crdt
 
-func binarySearch(n int, f func(int) int) (int, bool) {
+func BinarySearch(n int, f func(int) int) (int, bool) {
 	i, j := 0, n
 	for i < j {
 		h := int(uint(i+j) >> 1)

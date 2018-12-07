@@ -109,7 +109,7 @@ func (s *mapState) getElement(key interface{}, dot Dot) *MapElement {
 	if !ok {
 		return nil
 	}
-	i, found := binarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(dot) })
+	i, found := BinarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(dot) })
 	if !found {
 		return nil
 	}
@@ -166,7 +166,7 @@ func (s *mapState) executeOp(op MapOp) (LocalMapOp, bool) {
 	}
 	if op.InsertedElement != nil {
 		e := *op.InsertedElement
-		if i, found := binarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(e.Dot) }); !found {
+		if i, found := BinarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(e.Dot) }); !found {
 			elements = append(elements, nil)
 			copy(elements[i+1:], elements[i:])
 			elements[i] = &e

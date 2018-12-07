@@ -187,7 +187,7 @@ func (s *listState) remove(i int) (interface{}, ListRemoveOp) {
 }
 
 func (s *listState) index(uid *UID) (int, bool) {
-	return binarySearch(len(s.elements), func(i int) int {
+	return BinarySearch(len(s.elements), func(i int) int {
 		e := s.elements[i]
 		return (&e.UID).Cmp(uid)
 	})

@@ -119,7 +119,7 @@ func (s *setState) executeOp(op SetOp) (LocalSetOp, bool) {
 		dots = ds
 	}
 	if op.InsertedDot != nil {
-		if i, found := binarySearch(len(dots), func(i int) int { return dots[i].Cmp(*op.InsertedDot) }); !found {
+		if i, found := BinarySearch(len(dots), func(i int) int { return dots[i].Cmp(*op.InsertedDot) }); !found {
 			dots = append(dots, Dot{})
 			copy(dots[i+1:], dots[i:])
 			dots[i] = *op.InsertedDot
