@@ -36,7 +36,7 @@ func TestSetInsertAlreadyExists(t *testing.T) {
 	op2 := s.Insert(123)
 	assert.Equal(t, 1, len(op2.RemovedDots))
 	assert.Equal(t, *op1.InsertedDot, op2.RemovedDots[0])
-	assert.Equal(t, []interface{}{123}, s.Values())
+	assert.Equal(t, []interface{}{123}, setValues(s))
 }
 
 func TestSetRemove(t *testing.T) {
@@ -53,7 +53,7 @@ func TestSetRemove(t *testing.T) {
 	assert.Equal(t, 1, len(op2.RemovedDots))
 	assert.Equal(t, Dot{1, 1}, op2.RemovedDots[0])
 	assert.Equal(t, 0, s.Len())
-	assert.Equal(t, []interface{}{}, s.Values())
+	assert.Nil(t, setValues(s))
 }
 
 func TestSetRemoveDoesNotExist(t *testing.T) {
@@ -135,4 +135,12 @@ func TestSetExecuteRemoteRemoveDupe(t *testing.T) {
 	_, ok4 := s2.ExecuteOp(op2)
 	assert.False(t, ok4)
 	assert.False(t, s2.Contains(10))
+}
+
+func setValues(s *Set) []interface{} {
+	var vs []interface{}
+	s.Values(func(v interface{}) {
+		vs = append(vs, v)
+	})
+	return vs
 }

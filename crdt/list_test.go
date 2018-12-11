@@ -127,7 +127,7 @@ func TestListExecuteOpInsert(t *testing.T) {
 	assert.Equal(t, "a", l2.Get(0))
 	assert.True(t, ok)
 	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop)
-	assert.Equal(t, l1.Values(), l2.Values())
+	assert.Equal(t, listValues(l1), listValues(l2))
 }
 
 func TestListExecuteOpInsertDupe(t *testing.T) {
@@ -141,7 +141,7 @@ func TestListExecuteOpInsertDupe(t *testing.T) {
 	assert.True(t, ok1)
 	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.False(t, ok2)
-	assert.Equal(t, l1.Values(), l2.Values())
+	assert.Equal(t, listValues(l1), listValues(l2))
 }
 
 func TestListExecuteOpRemove(t *testing.T) {
@@ -155,7 +155,7 @@ func TestListExecuteOpRemove(t *testing.T) {
 	assert.True(t, ok1)
 	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.True(t, ok2)
-	assert.Equal(t, LocalListRemoveOp{Index: 0}, lop2)
+	assert.Equal(t, LocalListRemoveOp(0), lop2)
 	assert.Equal(t, 0, l2.Len())
 }
 
@@ -171,7 +171,7 @@ func TestListExecuteRemoveOpDupe(t *testing.T) {
 	assert.True(t, ok1)
 	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.True(t, ok2)
-	assert.Equal(t, LocalListRemoveOp{Index: 0}, lop2)
+	assert.Equal(t, LocalListRemoveOp(0), lop2)
 	assert.False(t, ok3)
 	assert.Equal(t, 0, l2.Len())
 }
@@ -181,9 +181,17 @@ func TestListExecuteOps(t *testing.T) {
 	l2 := NewList(2)
 	op1 := l1.Push(2)
 	op2 := l2.Push(1)
-	assert.Equal(t, []interface{}{2}, l1.Values())
-	assert.Equal(t, []interface{}{1}, l2.Values())
+	assert.Equal(t, []interface{}{2}, listValues(l1))
+	assert.Equal(t, []interface{}{1}, listValues(l2))
 	l2.ExecuteOp(op1)
 	l1.ExecuteOp(op2)
-	assert.Equal(t, l1.Values(), l2.Values())
+	assert.Equal(t, listValues(l1), listValues(l2))
+}
+
+func listValues(l *List) []interface{} {
+	var vs []interface{}
+	l.Values(func(v interface{}) {
+		vs = append(vs, v)
+	})
+	return vs
 }

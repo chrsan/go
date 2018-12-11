@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/btree"
@@ -38,8 +39,8 @@ func (t *Text) ExecuteOp(op TextOp) TextEdits {
 	return t.state.executeOp(op)
 }
 
-func (t *Text) Value() string {
-	return t.state.value()
+func (t *Text) String() string {
+	return t.state.String()
 }
 
 func (t *Text) Replicate(siteID SiteID) *Text {
@@ -66,6 +67,20 @@ func (t TextOp) InsertedDots(f func(*Dot)) {
 		uid := &t.RemovedUIDs[i]
 		f(&uid.Dot)
 	}
+}
+
+func (t TextOp) Validate(siteID SiteID) error {
+	var invalid []string
+	for i := range t.InsertedElements {
+		e := &t.InsertedElements[i]
+		if e.UID.Dot.SiteID != siteID {
+			invalid = append(invalid, strconv.FormatUint(uint64(e.UID.Dot.SiteID), 10))
+		}
+	}
+	if len(invalid) != 0 {
+		return fmt.Errorf("Invalid op: %s != %d", strings.Join(invalid, ", "), siteID)
+	}
+	return nil
 }
 
 type textState struct {
@@ -172,7 +187,7 @@ func (t *textState) clone() *textState {
 	return &textState{t.tree.clone(), nil}
 }
 
-func (t *textState) value() string {
+func (t *textState) String() string {
 	var b strings.Builder
 	t.tree.elements.Ascend(func(item btree.Item) bool {
 		b.WriteString(item.(textTreeElem).text)

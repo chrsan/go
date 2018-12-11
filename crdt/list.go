@@ -48,8 +48,8 @@ func (l *List) ExecuteOp(op ListOp) (LocalListOp, bool) {
 	return l.state.executeOp(op)
 }
 
-func (l *List) Values() []interface{} {
-	return l.state.values()
+func (l *List) Values(f func(interface{})) {
+	l.state.values(f)
 }
 
 func (l *List) Replicate(siteID SiteID) *List {
@@ -97,11 +97,9 @@ func (i ListInsertOp) Validate(siteID SiteID) bool {
 	return true
 }
 
-func (_ ListInsertOp) isOp() {}
+func (ListInsertOp) isOp() {}
 
-type ListRemoveOp struct {
-	UID UID
-}
+type ListRemoveOp = UID
 
 func (r ListRemoveOp) InsertedDots() []Dot {
 	return nil
@@ -112,14 +110,14 @@ func (r ListRemoveOp) InsertedElement() (ListElement, bool) {
 }
 
 func (r ListRemoveOp) RemovedUID() (UID, bool) {
-	return r.UID, true
+	return r, true
 }
 
 func (r ListRemoveOp) Validate(siteID SiteID) bool {
 	return true
 }
 
-func (_ ListRemoveOp) isOp() {}
+func (ListRemoveOp) isOp() {}
 
 type LocalListOp interface {
 	isLocalOp()
@@ -130,13 +128,11 @@ type LocalListInsertOp struct {
 	Value interface{}
 }
 
-func (_ LocalListInsertOp) isLocalOp() {}
+func (LocalListInsertOp) isLocalOp() {}
 
-type LocalListRemoveOp struct {
-	Index int
-}
+type LocalListRemoveOp int
 
-func (_ LocalListRemoveOp) isLocalOp() {}
+func (LocalListRemoveOp) isLocalOp() {}
 
 type listState struct {
 	elements []*ListElement
@@ -174,7 +170,7 @@ func (s *listState) pop() (interface{}, ListRemoveOp) {
 	v, u := e.Value, e.UID
 	s.elements[0] = nil
 	s.elements = s.elements[1:]
-	return v, ListRemoveOp{u}
+	return v, u
 }
 
 func (s *listState) remove(i int) (interface{}, ListRemoveOp) {
@@ -183,7 +179,7 @@ func (s *listState) remove(i int) (interface{}, ListRemoveOp) {
 	copy(s.elements[i:], s.elements[i+1:])
 	s.elements[len(s.elements)-1] = nil
 	s.elements = s.elements[:len(s.elements)-1]
-	return v, ListRemoveOp{u}
+	return v, u
 }
 
 func (s *listState) index(uid *UID) (int, bool) {
@@ -210,14 +206,14 @@ func (s *listState) executeOp(op ListOp) (LocalListOp, bool) {
 		}
 		return LocalListInsertOp{Index: i, Value: e.Value}, true
 	case ListRemoveOp:
-		i, found := s.index(&op.UID)
+		i, found := s.index(&op)
 		if !found {
-			return LocalListRemoveOp{}, false
+			return LocalListRemoveOp(-1), false
 		}
 		copy(s.elements[i:], s.elements[i+1:])
 		s.elements[len(s.elements)-1] = nil
 		s.elements = s.elements[:len(s.elements)-1]
-		return LocalListRemoveOp{Index: i}, true
+		return LocalListRemoveOp(i), true
 	}
 	panic(op)
 }
@@ -231,12 +227,10 @@ func (s *listState) clone() *listState {
 	return &listState{elements}
 }
 
-func (s *listState) values() []interface{} {
-	vs := make([]interface{}, len(s.elements))
-	for i, e := range s.elements {
-		vs[i] = e.Value
+func (s *listState) values(f func(interface{})) {
+	for _, e := range s.elements {
+		f(e.Value)
 	}
-	return vs
 }
 
 func (s *listState) eq(state *listState) bool {

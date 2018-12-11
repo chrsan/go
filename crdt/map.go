@@ -1,5 +1,9 @@
 package crdt
 
+import (
+	"fmt"
+)
+
 type Map struct {
 	siteID  SiteID
 	state   *mapState
@@ -53,8 +57,8 @@ func (m *Map) ExecuteOp(op MapOp) (LocalMapOp, bool) {
 	return m.state.executeOp(op)
 }
 
-func (m *Map) Values() []MapEntry {
-	return m.state.values()
+func (m *Map) Entries(f func(MapEntry)) {
+	m.state.entries(f)
 }
 
 func (m *Map) Replicate(siteID SiteID) *Map {
@@ -79,6 +83,13 @@ type MapOp struct {
 	Key             interface{}
 	InsertedElement *MapElement
 	RemovedDots     []Dot
+}
+
+func (m MapOp) Validate(siteID SiteID) error {
+	if m.InsertedElement != nil && m.InsertedElement.Dot.SiteID != siteID {
+		return fmt.Errorf("Invalid op: %d != %d", m.InsertedElement.Dot.SiteID, siteID)
+	}
+	return nil
 }
 
 type LocalMapOp struct {
@@ -193,15 +204,13 @@ func (s *mapState) clone() *mapState {
 	return &mapState{m}
 }
 
-func (s *mapState) values() []MapEntry {
+func (s *mapState) entries(f func(e MapEntry)) {
 	if s.m == nil {
-		return nil
+		return
 	}
-	es, i := make([]MapEntry, len(s.m)), 0
 	for k, elements := range s.m {
-		es[i] = MapEntry{k, elements[0].Value}
+		f(MapEntry{k, elements[0].Value})
 	}
-	return es
 }
 
 func (s *mapState) eq(state *mapState) bool {

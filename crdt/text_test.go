@@ -9,7 +9,7 @@ import (
 func TestNewText(t *testing.T) {
 	x := NewText(1)
 	assert.Equal(t, 0, x.Len())
-	assert.Equal(t, "", x.Value())
+	assert.Equal(t, "", x.String())
 }
 
 func TestTextReplace(t *testing.T) {
@@ -20,7 +20,7 @@ func TestTextReplace(t *testing.T) {
 	assert.True(t, ok2)
 	op3, ok3 := x.Replace(9, 1, "stwhile")
 	assert.True(t, ok3)
-	assert.Equal(t, "Hěllo erstwhile", x.Value())
+	assert.Equal(t, "Hěllo erstwhile", x.String())
 	assert.Equal(t, 16, x.Len())
 	assert.Equal(t, "Hěllo Ťhere", op1.InsertedElements[0].Text)
 	assert.Equal(t, 0, op2.RemovedUIDs[0].Cmp(&op1.InsertedElements[0].UID))
@@ -70,5 +70,5 @@ func TestTextExecuteOpDupe(t *testing.T) {
 	assert.True(t, x1.state.eq(x2.state))
 	assert.Equal(t, 1, len(e1))
 	assert.Equal(t, 0, len(e2))
-	assert.Equal(t, x1.Value(), x2.Value())
+	assert.Equal(t, x1.String(), x2.String())
 }

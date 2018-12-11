@@ -1,5 +1,9 @@
 package crdt
 
+import (
+	"fmt"
+)
+
 type Set struct {
 	siteID  SiteID
 	state   *setState
@@ -45,8 +49,8 @@ func (s *Set) ExecuteOp(op SetOp) (LocalSetOp, bool) {
 	return s.state.executeOp(op)
 }
 
-func (s *Set) Values() []interface{} {
-	return s.state.values()
+func (s *Set) Values(f func(interface{})) {
+	s.state.values(f)
 }
 
 func (s *Set) Replicate(siteID SiteID) *Set {
@@ -70,6 +74,13 @@ type SetOp struct {
 	Value       interface{}
 	InsertedDot *Dot
 	RemovedDots []Dot
+}
+
+func (s SetOp) Validate(siteID SiteID) error {
+	if s.InsertedDot != nil && s.InsertedDot.SiteID != siteID {
+		return fmt.Errorf("Invalid op: %d != %d", s.InsertedDot.SiteID, siteID)
+	}
+	return nil
 }
 
 type LocalSetOp struct {
@@ -151,16 +162,13 @@ func (s *setState) clone() *setState {
 	return &setState{set}
 }
 
-func (s *setState) values() []interface{} {
+func (s *setState) values(f func(interface{})) {
 	if s.set == nil {
-		return []interface{}{}
+		return
 	}
-	vs, i := make([]interface{}, len(s.set)), 0
 	for k := range s.set {
-		vs[i] = k
-		i++
+		f(k)
 	}
-	return vs
 }
 
 func (s *setState) eq(state *setState) bool {

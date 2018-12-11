@@ -1,6 +1,8 @@
 package crdt
 
 import (
+	"fmt"
+
 	"github.com/google/btree"
 )
 
@@ -51,18 +53,17 @@ func (r *Register) Update(value interface{}) RegisterOp {
 func (r *Register) ExecuteOp(op RegisterOp) interface{} {
 	for i := range op.RemovedDots {
 		dot := &op.RemovedDots[i]
-		k := elem{id: dot.SiteID}
-		v := r.elements.Get(k)
+		v := r.elements.Get(dot.SiteID)
 		if v == nil {
 			continue
 		}
 		e := v.(elem)
 		if e.v.Counter <= dot.Counter {
-			r.elements.Delete(k)
+			r.elements.Delete(dot.SiteID)
 		}
 	}
 	r.summary.Insert(&op.Dot)
-	v, ins := r.elements.Get(elem{id: op.Dot.SiteID}), true
+	v, ins := r.elements.Get(op.Dot.SiteID), true
 	if v != nil {
 		e := v.(elem)
 		if e.v.Counter > op.Dot.Counter {
@@ -90,7 +91,7 @@ func (r *Register) Eq(register *Register) bool {
 	ok := true
 	r.elements.Ascend(func(item btree.Item) bool {
 		e := item.(elem)
-		i := register.elements.Get(elem{id: e.id})
+		i := register.elements.Get(e.id)
 		if i == nil {
 			ok = false
 		} else if *e.v != *(i.(elem).v) {
@@ -112,6 +113,13 @@ type RegisterOp struct {
 	RemovedDots []Dot
 }
 
+func (r RegisterOp) Validate(siteID SiteID) error {
+	if r.Dot.SiteID != siteID {
+		return fmt.Errorf("Invalid op: %d != %d", r.Dot.SiteID, siteID)
+	}
+	return nil
+}
+
 type elem struct {
 	id SiteID
 	v  *SiteValue
@@ -121,6 +129,16 @@ func newElem(id SiteID, v *SiteValue) elem {
 	return elem{id, v}
 }
 
+func (i SiteID) Less(item btree.Item) bool {
+	return i < (item.(elem)).id
+}
+
 func (e elem) Less(item btree.Item) bool {
-	return e.id < (item.(elem)).id
+	switch x := item.(type) {
+	case elem:
+		return e.id < x.id
+	case SiteID:
+		return e.id < x
+	}
+	panic(item)
 }
