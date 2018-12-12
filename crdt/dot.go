@@ -99,13 +99,13 @@ func (s *Summary) Eq(summary *Summary) bool {
 	return true
 }
 
-func checkSiteID(siteID SiteID) {
+func CheckSiteID(siteID SiteID) {
 	if uint32(siteID) == 0 {
 		panic(fmt.Sprintf("Invalid site id: %d", siteID))
 	}
 }
 
-func dotExists(dots []Dot, dot Dot) bool {
+func DotExists(dots []Dot, dot Dot) bool {
 	for _, d := range dots {
 		if dot == d {
 			return true

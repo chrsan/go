@@ -1,4 +1,4 @@
-package crdt
+package register
 
 import (
 	"testing"
@@ -6,34 +6,34 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewRegister(t *testing.T) {
-	r := NewRegister(1, 8142)
+func TestNew(t *testing.T) {
+	r := New(1, 8142)
 	assert.Equal(t, 8142, r.Get())
-	assert.Equal(t, SiteID(1), r.SiteID())
-	assert.Equal(t, Counter(1), r.Counter(1))
+	assert.EqualValues(t, 1, r.SiteID())
+	assert.EqualValues(t, 1, r.Counter(1))
 }
 
-func TestRegisterUpdate(t *testing.T) {
-	r := NewRegister(1, 8142)
+func TestUpdate(t *testing.T) {
+	r := New(1, 8142)
 	op := r.Update(42)
 	assert.Equal(t, 42, r.Get())
-	assert.Equal(t, Counter(2), r.Counter(1))
-	assert.Equal(t, SiteID(1), op.Dot.SiteID)
-	assert.Equal(t, Counter(2), op.Dot.Counter)
+	assert.EqualValues(t, 2, r.Counter(1))
+	assert.EqualValues(t, 1, op.Dot.SiteID)
+	assert.EqualValues(t, 2, op.Dot.Counter)
 	assert.Equal(t, 42, op.Value)
 	assert.Nil(t, op.RemovedDots)
 }
 
-func TestRegisterExecuteOp(t *testing.T) {
-	r1 := NewRegister(1, "a")
+func TestExecuteOp(t *testing.T) {
+	r1 := New(1, "a")
 	r2 := r1.Replicate(2)
 	op := r1.Update("b")
 	assert.Equal(t, "b", r2.ExecuteOp(op))
 	assert.True(t, r2.Eq(r1))
 }
 
-func TestRegisterExecuteOpConcurrent(t *testing.T) {
-	r1 := NewRegister(1, "a")
+func TestExecuteOpConcurrent(t *testing.T) {
+	r1 := New(1, "a")
 	r2 := r1.Replicate(2)
 	r3 := r1.Replicate(3)
 	op1 := r1.Update("b")
@@ -49,8 +49,8 @@ func TestRegisterExecuteOpConcurrent(t *testing.T) {
 	assert.True(t, r1.Eq(r3))
 }
 
-func TestRegisterRemoteDupe(t *testing.T) {
-	r1 := NewRegister(1, "a")
+func TestRemoteDupe(t *testing.T) {
+	r1 := New(1, "a")
 	r2 := r1.Replicate(2)
 	op := r1.Update("b")
 	assert.Equal(t, "b", r2.ExecuteOp(op))
@@ -58,8 +58,8 @@ func TestRegisterRemoteDupe(t *testing.T) {
 	assert.True(t, r1.Eq(r2))
 }
 
-func TestRegisterExecuteOps(t *testing.T) {
-	r1 := NewRegister(1, 1)
+func TestExecuteOps(t *testing.T) {
+	r1 := New(1, 1)
 	r2 := r1.Replicate(2)
 	op1 := r1.Update(2)
 	assert.Equal(t, 2, r1.Get())

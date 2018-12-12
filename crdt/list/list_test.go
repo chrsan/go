@@ -1,4 +1,4 @@
-package crdt
+package list
 
 import (
 	"testing"
@@ -6,19 +6,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TesNewList(t *testing.T) {
-	l := NewList(1)
+func TesNew(t *testing.T) {
+	l := New(1)
 	assert.Equal(t, 0, l.Len())
 }
 
-func TestListGet(t *testing.T) {
-	l := NewList(1)
+func TestGet(t *testing.T) {
+	l := New(1)
 	l.Insert(0, 123)
 	assert.Equal(t, 123, l.Get(0))
 }
 
-func TestListInsertPrepend(t *testing.T) {
-	l := NewList(1)
+func TestInsertPrepend(t *testing.T) {
+	l := New(1)
 	op1 := l.Insert(0, 123)
 	op2 := l.Insert(0, 456)
 	op3 := l.Insert(0, 789)
@@ -36,8 +36,8 @@ func TestListInsertPrepend(t *testing.T) {
 	assert.True(t, e2.UID.Cmp(&e3.UID) > 0)
 }
 
-func TestListInsertAppend(t *testing.T) {
-	l := NewList(1)
+func TestInsertAppend(t *testing.T) {
+	l := New(1)
 	op1 := l.Insert(0, 123)
 	op2 := l.Insert(1, 456)
 	op3 := l.Insert(2, 789)
@@ -55,8 +55,8 @@ func TestListInsertAppend(t *testing.T) {
 	assert.True(t, e2.UID.Cmp(&e3.UID) < 0)
 }
 
-func TestListInsertMiddle(t *testing.T) {
-	l := NewList(1)
+func TestInsertMiddle(t *testing.T) {
+	l := New(1)
 	op1 := l.Insert(0, 123)
 	op2 := l.Insert(1, 456)
 	op3 := l.Insert(1, 789)
@@ -74,13 +74,13 @@ func TestListInsertMiddle(t *testing.T) {
 	assert.True(t, e3.UID.Cmp(&e2.UID) < 0)
 }
 
-func TestListInsertOutOfBounds(t *testing.T) {
-	l := NewList(1)
+func TestInsertOutOfBounds(t *testing.T) {
+	l := New(1)
 	assert.Panics(t, func() { l.Insert(1, 123) })
 }
 
-func TestListRemove(t *testing.T) {
-	l := NewList(1)
+func TestRemove(t *testing.T) {
+	l := New(1)
 	l.Push(123)
 	op1 := l.Push(456)
 	l.Push(789)
@@ -95,13 +95,13 @@ func TestListRemove(t *testing.T) {
 	assert.True(t, e.UID.Cmp(&u) == 0)
 }
 
-func TestListRemoveOutOfBounds(t *testing.T) {
-	l := NewList(1)
+func TestRemoveOutOfBounds(t *testing.T) {
+	l := New(1)
 	assert.Panics(t, func() { l.Remove(0) })
 }
 
-func TestListPop(t *testing.T) {
-	l := NewList(1)
+func TestPop(t *testing.T) {
+	l := New(1)
 	op1 := l.Push(123)
 	_, op2 := l.Pop()
 	assert.Equal(t, 0, l.Len())
@@ -113,25 +113,25 @@ func TestListPop(t *testing.T) {
 	assert.True(t, e.UID.Cmp(&u) == 0)
 }
 
-func TestListPopOutOfBounds(t *testing.T) {
-	l := NewList(1)
+func TestPopOutOfBounds(t *testing.T) {
+	l := New(1)
 	assert.Panics(t, func() { l.Pop() })
 }
 
-func TestListExecuteOpInsert(t *testing.T) {
-	l1 := NewList(1)
+func TestExecuteOpInsert(t *testing.T) {
+	l1 := New(1)
 	l2 := l1.Replicate(2)
 	op := l1.Push("a")
 	lop, ok := l2.ExecuteOp(op)
 	assert.Equal(t, 1, l2.Len())
 	assert.Equal(t, "a", l2.Get(0))
 	assert.True(t, ok)
-	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop)
+	assert.Equal(t, LocalInsertOp{Index: 0, Value: "a"}, lop)
 	assert.Equal(t, listValues(l1), listValues(l2))
 }
 
-func TestListExecuteOpInsertDupe(t *testing.T) {
-	l1 := NewList(1)
+func TestExecuteOpInsertDupe(t *testing.T) {
+	l1 := New(1)
 	l2 := l1.Replicate(2)
 	op := l1.Insert(0, "a")
 	lop1, ok1 := l2.ExecuteOp(op)
@@ -139,13 +139,13 @@ func TestListExecuteOpInsertDupe(t *testing.T) {
 	assert.Equal(t, 1, l2.Len())
 	assert.Equal(t, "a", l2.Get(0))
 	assert.True(t, ok1)
-	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
+	assert.Equal(t, LocalInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.False(t, ok2)
 	assert.Equal(t, listValues(l1), listValues(l2))
 }
 
-func TestListExecuteOpRemove(t *testing.T) {
-	l1 := NewList(1)
+func TestExecuteOpRemove(t *testing.T) {
+	l1 := New(1)
 	l2 := l1.Replicate(2)
 	op1 := l1.Push("a")
 	_, op2 := l1.Pop()
@@ -153,14 +153,14 @@ func TestListExecuteOpRemove(t *testing.T) {
 	lop2, ok2 := l2.ExecuteOp(op2)
 	assert.Equal(t, 0, l1.Len())
 	assert.True(t, ok1)
-	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
+	assert.Equal(t, LocalInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.True(t, ok2)
-	assert.Equal(t, LocalListRemoveOp(0), lop2)
+	assert.Equal(t, LocalRemoveOp(0), lop2)
 	assert.Equal(t, 0, l2.Len())
 }
 
-func TestListExecuteRemoveOpDupe(t *testing.T) {
-	l1 := NewList(1)
+func TestExecuteRemoveOpDupe(t *testing.T) {
+	l1 := New(1)
 	l2 := l1.Replicate(2)
 	op1 := l1.Push("a")
 	_, op2 := l1.Pop()
@@ -169,16 +169,16 @@ func TestListExecuteRemoveOpDupe(t *testing.T) {
 	_, ok3 := l2.ExecuteOp(op2)
 	assert.Equal(t, 0, l1.Len())
 	assert.True(t, ok1)
-	assert.Equal(t, LocalListInsertOp{Index: 0, Value: "a"}, lop1)
+	assert.Equal(t, LocalInsertOp{Index: 0, Value: "a"}, lop1)
 	assert.True(t, ok2)
-	assert.Equal(t, LocalListRemoveOp(0), lop2)
+	assert.Equal(t, LocalRemoveOp(0), lop2)
 	assert.False(t, ok3)
 	assert.Equal(t, 0, l2.Len())
 }
 
-func TestListExecuteOps(t *testing.T) {
-	l1 := NewList(1)
-	l2 := NewList(2)
+func TestExecuteOps(t *testing.T) {
+	l1 := New(1)
+	l2 := New(2)
 	op1 := l1.Push(2)
 	op2 := l2.Push(1)
 	assert.Equal(t, []interface{}{2}, listValues(l1))
