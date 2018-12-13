@@ -7,7 +7,6 @@ import (
 )
 
 type Op interface {
-	InsertedDots() []crdt.Dot
 	InsertedElement() (Element, bool)
 	RemovedUID() (crdt.UID, bool)
 	Validate(siteID crdt.SiteID) error
@@ -16,10 +15,6 @@ type Op interface {
 
 type InsertOp struct {
 	Element Element
-}
-
-func (i InsertOp) InsertedDots() []crdt.Dot {
-	return []crdt.Dot{i.Element.UID.Dot}
 }
 
 func (i InsertOp) InsertedElement() (Element, bool) {
@@ -41,10 +36,6 @@ func (InsertOp) isOp() {}
 
 type RemoveOp struct {
 	UID crdt.UID
-}
-
-func (r RemoveOp) InsertedDots() []crdt.Dot {
-	return nil
 }
 
 func (r RemoveOp) InsertedElement() (Element, bool) {

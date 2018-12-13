@@ -6,6 +6,10 @@ type State struct {
 	m map[interface{}][]*Element
 }
 
+func (s *State) Len() int {
+	return len(s.m)
+}
+
 func (s *State) Get(key interface{}) *Element {
 	if s.m == nil {
 		return nil
@@ -17,7 +21,7 @@ func (s *State) Get(key interface{}) *Element {
 	return elements[0]
 }
 
-func (s *State) GetElement(key interface{}, dot crdt.Dot) *Element {
+func (s *State) GetElement(key interface{}, dot *crdt.Dot) *Element {
 	if s.m == nil {
 		return nil
 	}
@@ -44,7 +48,9 @@ func (s *State) Insert(key, value interface{}, dot crdt.Dot) Op {
 		removedDots = make([]crdt.Dot, len(elements))
 		for i, e := range elements {
 			removedDots[i] = e.Dot
+			e = nil
 		}
+		elements = nil
 	}
 	return Op{key, ins, removedDots}
 }
@@ -61,7 +67,9 @@ func (s *State) Remove(key interface{}) (Op, bool) {
 	removedDots := make([]crdt.Dot, len(elements))
 	for i, e := range elements {
 		removedDots[i] = e.Dot
+		e = nil
 	}
+	elements = nil
 	return Op{key, nil, removedDots}, true
 }
 
@@ -76,13 +84,15 @@ func (s *State) ExecuteOp(op Op) LocalOp {
 		for _, e := range elements {
 			if !crdt.DotExists(op.RemovedDots, e.Dot) {
 				elems = append(elems, e)
+			} else {
+				e = nil
 			}
 		}
 		elements = elems
 	}
 	if op.InsertedElement != nil {
 		e := *op.InsertedElement
-		if i, found := crdt.BinarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(e.Dot) }); !found {
+		if i, found := crdt.BinarySearch(len(elements), func(i int) int { return elements[i].Dot.Cmp(&e.Dot) }); !found {
 			elements = append(elements, nil)
 			copy(elements[i+1:], elements[i:])
 			elements[i] = &e

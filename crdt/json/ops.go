@@ -12,35 +12,17 @@ type Op struct {
 	Inner   InnerOp
 }
 
-func (o Op) InsertedDots() []crdt.Dot {
-	switch i := o.Inner.(type) {
-	case InnerObjectOp:
-		if i.InsertedElement == nil {
-			return nil
-		}
-		return []crdt.Dot{i.InsertedElement.Dot}
-	case InnerArrayOp:
-		return i.Op.InsertedDots()
-	case InnerStringOp:
-		var dots []crdt.Dot
-		text.Op(i).InsertedDots(func(d *crdt.Dot) {
-			dots = append(dots, *d)
-		})
-		return dots
-	}
-	panic("")
-}
-
 func (o Op) Validate(siteID crdt.SiteID) error {
-	switch i := o.Inner.(type) {
+	switch inner := o.Inner.(type) {
 	case InnerObjectOp:
-		return ormap.Op(i).Validate(siteID)
+		return ormap.Op(inner).Validate(siteID)
 	case InnerArrayOp:
-		return i.Op.Validate(siteID)
+		return inner.Op.Validate(siteID)
 	case InnerStringOp:
-		return text.Op(i).Validate(siteID)
+		return text.Op(inner).Validate(siteID)
+	default:
+		panic(inner)
 	}
-	panic("")
 }
 
 type LocalOp interface {

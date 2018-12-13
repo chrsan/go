@@ -13,13 +13,6 @@ type Op struct {
 	RemovedUIDs      []crdt.UID
 }
 
-func (o Op) InsertedDots(f func(*crdt.Dot)) {
-	for i := range o.RemovedUIDs {
-		uid := &o.RemovedUIDs[i]
-		f(&uid.Dot)
-	}
-}
-
 func (o Op) Validate(siteID crdt.SiteID) error {
 	var invalid []string
 	for i := range o.InsertedElements {

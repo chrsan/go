@@ -18,7 +18,7 @@ func (m *Map) SiteID() crdt.SiteID {
 }
 
 func (m *Map) Len() int {
-	return len(m.state.m)
+	return m.state.Len()
 }
 
 func (m *Map) Contains(key interface{}) bool {

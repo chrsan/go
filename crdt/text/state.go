@@ -17,6 +17,10 @@ func NewState() *State {
 	return &State{tree: newTree()}
 }
 
+func (s *State) Len() int {
+	return s.tree.count
+}
+
 func (s *State) Replace(index, count int, text string, dot *crdt.Dot) (Op, bool) {
 	if index+count > s.tree.count {
 		panic(fmt.Sprintf("Index out of bounds: %d", index))
@@ -45,6 +49,7 @@ func (s *State) ExecuteOp(op Op) Edits {
 			panic(fmt.Sprintf("Invalid state. UID does not exist: %v", *u))
 		}
 		edits = pushEdit(edits, j, len(e.text), "")
+		e = nil
 	}
 	for i := range op.InsertedElements {
 		e := &op.InsertedElements[i]
@@ -139,7 +144,9 @@ func (s *State) doReplace(index, count int, text string, dot *crdt.Dot) Op {
 	removedUIDs := make([]crdt.UID, len(removes))
 	for j, e := range removes {
 		removedUIDs[j] = *e.uid
+		e = nil
 	}
+	removes = nil
 	return Op{inserts, removedUIDs}
 }
 

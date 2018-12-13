@@ -44,8 +44,9 @@ func (l *List) Remove(i int) (interface{}, RemoveOp) {
 }
 
 func (l *List) ExecuteOp(op Op) (LocalOp, bool) {
-	for _, dot := range op.InsertedDots() {
-		l.summary.Insert(&dot)
+	e, ok := op.InsertedElement()
+	if ok {
+		l.summary.Insert(&e.UID.Dot)
 	}
 	return l.state.ExecuteOp(op)
 }

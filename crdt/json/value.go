@@ -16,22 +16,21 @@ type Value interface {
 	isValue()
 }
 
+// TODO: Check nil
+
 func toValue(x reflect.Value, dot *crdt.Dot) (Value, error) {
 	if !x.IsValid() {
 		return null, fmt.Errorf("Invalid JSON type: %s", x.Type())
 	}
-	if x.IsNil() {
-		return null, nil
-	}
 	switch x.Kind() {
 	case reflect.Bool:
-		return Boolean{x.Bool()}, nil
+		return Boolean(x.Bool()), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Int{x.Int()}, nil
+		return Int(x.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return Uint{x.Uint()}, nil
+		return Uint(x.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		return Float{x.Float()}, nil
+		return Float(x.Float()), nil
 	case reflect.String:
 		value := text.NewState()
 		s := x.String()
@@ -81,7 +80,7 @@ func (o Object) Value() interface{} {
 
 func (o Object) clone() Value {
 	value := o.v.Transform(func(e *ormap.Element) *ormap.Element {
-		return &ormap.Element{e.Value.(Value).clone(), e.Dot}
+		return &ormap.Element{Value: e.Value.(Value).clone(), Dot: e.Dot}
 	})
 	return Object{value}
 }
@@ -135,12 +134,10 @@ func (s String) String() string {
 	return fmt.Sprintf("%q", s.Value())
 }
 
-type Boolean struct {
-	V bool
-}
+type Boolean bool
 
 func (b Boolean) Value() interface{} {
-	return b.V
+	return bool(b)
 }
 
 func (b Boolean) clone() Value {
@@ -150,15 +147,13 @@ func (b Boolean) clone() Value {
 func (Boolean) isValue() {}
 
 func (b Boolean) String() string {
-	return fmt.Sprint(b.V)
+	return fmt.Sprint(bool(b))
 }
 
-type Int struct {
-	V int64
-}
+type Int int64
 
 func (i Int) Value() interface{} {
-	return i.V
+	return int64(i)
 }
 
 func (i Int) clone() Value {
@@ -168,15 +163,13 @@ func (i Int) clone() Value {
 func (Int) isValue() {}
 
 func (i Int) String() string {
-	return fmt.Sprint(i.V)
+	return fmt.Sprint(int64(i))
 }
 
-type Uint struct {
-	V uint64
-}
+type Uint uint64
 
 func (u Uint) Value() interface{} {
-	return u.V
+	return uint64(u)
 }
 
 func (u Uint) clone() Value {
@@ -186,15 +179,13 @@ func (u Uint) clone() Value {
 func (Uint) isValue() {}
 
 func (u Uint) String() string {
-	return fmt.Sprint(u.V)
+	return fmt.Sprint(uint64(u))
 }
 
-type Float struct {
-	V float64
-}
+type Float float64
 
 func (f Float) Value() interface{} {
-	return f.V
+	return float64(f)
 }
 
 func (f Float) clone() Value {
@@ -204,11 +195,10 @@ func (f Float) clone() Value {
 func (Float) isValue() {}
 
 func (f Float) String() string {
-	return fmt.Sprint(f.V)
+	return fmt.Sprint(float64(f))
 }
 
-type Null struct {
-}
+type Null struct{}
 
 func (n Null) Value() interface{} {
 	return nil

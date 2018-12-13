@@ -52,6 +52,7 @@ func (s *State) Pop() (interface{}, RemoveOp) {
 func (s *State) Remove(i int) (interface{}, RemoveOp) {
 	e := s.elements[i]
 	v, u := e.Value, e.UID
+	s.elements[i] = nil
 	copy(s.elements[i:], s.elements[i+1:])
 	s.elements[len(s.elements)-1] = nil
 	s.elements = s.elements[:len(s.elements)-1]

@@ -10,7 +10,7 @@ type Dot struct {
 	Counter Counter
 }
 
-func (d Dot) Cmp(dot Dot) int {
+func (d Dot) Cmp(dot *Dot) int {
 	if d.SiteID < dot.SiteID {
 		return -1
 	}
@@ -54,10 +54,7 @@ func (s *Summary) Counter(siteID SiteID) Counter {
 
 func (s *Summary) Dot(siteID SiteID) Dot {
 	c := s.Increment(siteID)
-	return Dot{
-		SiteID:  siteID,
-		Counter: c,
-	}
+	return Dot{siteID, c}
 }
 
 func (s *Summary) Increment(siteID SiteID) Counter {

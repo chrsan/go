@@ -15,17 +15,17 @@ type State struct {
 	v Value
 }
 
-func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer ...interface{}) (Op, error) {
+func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer []interface{}) (Op, error) {
 	if len(pointer) == 0 {
 		return Op{nil, nil}, errors.New("Empty pointer")
 	}
-	p := pointer[0]
-	pointer = pointer[1:]
-	v, remotePointer, err := s.nestedPair(pointer)
+	p := pointer[len(pointer)-1]
+	pointer = pointer[:len(pointer)-1]
+	v, remotePointer, err := s.nestedLocal(pointer)
 	if err != nil {
 		return Op{nil, nil}, err
 	}
-	n, err := toValue(reflect.ValueOf(v), dot)
+	n, err := toValue(reflect.ValueOf(value), dot)
 	if err != nil {
 		return Op{nil, nil}, err
 	}
@@ -48,17 +48,17 @@ func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer ...interface{})
 		op := x.v.Insert(i, n, dot)
 		return Op{remotePointer, InnerArrayOp{op}}, nil
 	default:
-		return Op{nil, nil}, fmt.Errorf("%#v does not exist", pointer)
+		return Op{nil, nil}, fmt.Errorf("%v does not exist", pointer)
 	}
 }
 
-func (s *State) Remove(pointer ...interface{}) (Op, error) {
+func (s *State) Remove(pointer []interface{}) (Op, error) {
 	if len(pointer) == 0 {
 		return Op{nil, nil}, errors.New("Empty pointer")
 	}
 	p := pointer[0]
 	pointer = pointer[1:]
-	v, remotePointer, err := s.nestedPair(pointer)
+	v, remotePointer, err := s.nestedLocal(pointer)
 	if err != nil {
 		return Op{nil, nil}, err
 	}
@@ -70,7 +70,7 @@ func (s *State) Remove(pointer ...interface{}) (Op, error) {
 		}
 		op, ok := x.v.Remove(key)
 		if !ok {
-			return Op{nil, nil}, fmt.Errorf("%#v does not exist", pointer)
+			return Op{nil, nil}, fmt.Errorf("%v does not exist", pointer)
 		}
 		return Op{remotePointer, InnerObjectOp(op)}, nil
 	case Array:
@@ -84,15 +84,15 @@ func (s *State) Remove(pointer ...interface{}) (Op, error) {
 		_, op := x.v.Remove(i)
 		return Op{remotePointer, InnerArrayOp{op}}, nil
 	default:
-		return Op{nil, nil}, fmt.Errorf("%#v does not exist", pointer)
+		return Op{nil, nil}, fmt.Errorf("%v does not exist", pointer)
 	}
 }
 
-func (s *State) ReplaceText(index, count int, text string, dot *crdt.Dot, pointer ...interface{}) (Op, error) {
+func (s *State) ReplaceText(index, count int, text string, dot *crdt.Dot, pointer []interface{}) (Op, error) {
 	if len(pointer) == 0 {
 		return Op{nil, nil}, errors.New("Empty pointer")
 	}
-	v, remotePointer, err := s.nestedPair(pointer)
+	v, remotePointer, err := s.nestedLocal(pointer)
 	if err != nil {
 		return Op{nil, nil}, err
 	}
@@ -102,7 +102,7 @@ func (s *State) ReplaceText(index, count int, text string, dot *crdt.Dot, pointe
 	}
 	op, ok := x.v.Replace(index, count, text, dot)
 	if !ok {
-		return Op{nil, nil}, fmt.Errorf("%#v does not exist", pointer)
+		return Op{nil, nil}, fmt.Errorf("%v does not exist", pointer)
 	}
 	return Op{remotePointer, InnerStringOp(op)}, nil
 }
@@ -145,7 +145,7 @@ func (s *State) ExecuteOp(op Op) (LocalOp, bool) {
 			pointer = append(pointer, LocalArrayUID(lop))
 			return LocalRemoveOp(pointer), true
 		default:
-			panic("")
+			panic(lop)
 		}
 	case InnerStringOp:
 		x, ok := v.(String)
@@ -157,12 +157,12 @@ func (s *State) ExecuteOp(op Op) (LocalOp, bool) {
 			return nil, false
 		}
 		return LocalReplaceTextOp{changes, pointer}, true
+	default:
+		panic(inner)
 	}
-
-	panic("")
 }
 
-func (s *State) Nested(pointer ...interface{}) (Value, error) {
+func (s *State) NestedValue(pointer []interface{}) (Value, error) {
 	if len(pointer) == 0 {
 		return nil, errors.New("Empty pointer")
 	}
@@ -222,22 +222,22 @@ func (s *State) Eq(state *State) bool {
 		return false
 	case Boolean:
 		if y, ok := state.v.(Boolean); ok {
-			return x.V == y.V
+			return x == y
 		}
 		return false
 	case Int:
 		if y, ok := state.v.(Int); ok {
-			return x.V == y.V
+			return x == y
 		}
 		return false
 	case Uint:
 		if y, ok := state.v.(Uint); ok {
-			return x.V == y.V
+			return x == y
 		}
 		return false
 	case Float:
 		if y, ok := state.v.(Float); ok {
-			return x.V == y.V
+			return x == y
 		}
 		return false
 	case Null:
@@ -246,11 +246,11 @@ func (s *State) Eq(state *State) bool {
 		}
 		return false
 	default:
-		panic("")
+		panic(x)
 	}
 }
 
-func (s *State) nestedPair(pointer ...interface{}) (Value, []UID, error) {
+func (s *State) nestedLocal(pointer []interface{}) (Value, []UID, error) {
 	v := s.v
 	var remotePointer []UID
 	for _, p := range pointer {
@@ -262,7 +262,7 @@ func (s *State) nestedPair(pointer ...interface{}) (Value, []UID, error) {
 			}
 			e := x.v.Get(key)
 			if e == nil {
-				return nil, nil, fmt.Errorf("%#v does not exist", pointer)
+				return nil, nil, fmt.Errorf("%v does not exist", pointer)
 			}
 			uid := ObjectUID{key, e.Dot}
 			remotePointer = append(remotePointer, uid)
@@ -277,13 +277,13 @@ func (s *State) nestedPair(pointer ...interface{}) (Value, []UID, error) {
 			}
 			e := x.v.Get(i)
 			if e == nil {
-				return nil, nil, fmt.Errorf("%#v does not exist", pointer)
+				return nil, nil, fmt.Errorf("%v does not exist", pointer)
 			}
 			uid := ArrayUID(e.UID)
 			remotePointer = append(remotePointer, uid)
 			v = e.Value.(Value)
 		default:
-			return nil, nil, fmt.Errorf("%#v does not exist", pointer)
+			return nil, nil, fmt.Errorf("%v does not exist", pointer)
 		}
 	}
 
@@ -300,7 +300,7 @@ func (s *State) nestedRemote(pointer []UID) (Value, []LocalUID, bool) {
 			if !ok {
 				return nil, nil, false
 			}
-			e := x.v.GetElement(u.Key, u.Dot)
+			e := x.v.GetElement(u.Key, &u.Dot)
 			if e == nil {
 				return nil, nil, false
 			}

@@ -18,7 +18,7 @@ func (t *Text) SiteID() crdt.SiteID {
 }
 
 func (t *Text) Len() int {
-	return t.state.tree.count
+	return t.state.Len()
 }
 
 func (t *Text) Replace(index, count int, text string) (Op, bool) {
@@ -27,9 +27,10 @@ func (t *Text) Replace(index, count int, text string) (Op, bool) {
 }
 
 func (t *Text) ExecuteOp(op Op) Edits {
-	op.InsertedDots(func(dot *crdt.Dot) {
-		t.summary.Insert(dot)
-	})
+	for i := range op.RemovedUIDs {
+		uid := &op.RemovedUIDs[i]
+		t.summary.Insert(&uid.Dot)
+	}
 	return t.state.ExecuteOp(op)
 }
 

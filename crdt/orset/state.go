@@ -44,7 +44,7 @@ func (s *State) ExecuteOp(op Op) (LocalOp, bool) {
 		dots = ds
 	}
 	if op.InsertedDot != nil {
-		if i, found := crdt.BinarySearch(len(dots), func(i int) int { return dots[i].Cmp(*op.InsertedDot) }); !found {
+		if i, found := crdt.BinarySearch(len(dots), func(i int) int { return dots[i].Cmp(op.InsertedDot) }); !found {
 			dots = append(dots, crdt.Dot{})
 			copy(dots[i+1:], dots[i:])
 			dots[i] = *op.InsertedDot
