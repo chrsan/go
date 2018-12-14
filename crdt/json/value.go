@@ -1,8 +1,8 @@
 package json
 
 import (
+	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/chrsan/go/crdt"
 	"github.com/chrsan/go/crdt/list"
@@ -16,54 +16,289 @@ type Value interface {
 	isValue()
 }
 
-// TODO: Check nil
+type Builder struct {
+	dot    *crdt.Dot
+	root   Value
+	values []Value
+}
 
-func toValue(x reflect.Value, dot *crdt.Dot) (Value, error) {
-	if !x.IsValid() {
-		return null, fmt.Errorf("Invalid JSON type: %s", x.Type())
+func (b *Builder) StartObject() *Builder {
+	o := Object{&ormap.State{}}
+	if b.root == nil {
+		b.root = o
+		b.values = append(b.values, o)
+		return b
 	}
-	switch x.Kind() {
-	case reflect.Bool:
-		return Boolean(x.Bool()), nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Int(x.Int()), nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return Uint(x.Uint()), nil
-	case reflect.Float32, reflect.Float64:
-		return Float(x.Float()), nil
-	case reflect.String:
-		value := text.NewState()
-		s := x.String()
-		if s != "" {
-			value.Replace(0, 0, s, dot)
-		}
-		return String{value}, nil
-	case reflect.Map:
-		value := &ormap.State{}
-		for _, k := range x.MapKeys() {
-			if k.Kind() != reflect.String {
-				return null, fmt.Errorf("Invalid JSON map key type: %s", k.Type())
-			}
-			v, err := toValue(x.MapIndex(k), dot)
-			if err != nil {
-				return null, err
-			}
-			value.Insert(k.String(), v, *dot)
-		}
-		return Object{value}, nil
-	case reflect.Array, reflect.Slice:
-		value := &list.State{}
-		for i := 0; i < x.Len(); i++ {
-			v, err := toValue(x.Index(i), dot)
-			if err != nil {
-				return null, err
-			}
-			value.Insert(i, v, dot)
-		}
-		return Array{value}, nil
-	default:
-		return null, fmt.Errorf("Invalid JSON type: %s", x.Type())
+	b.currentArray().v.Push(o, b.dot)
+	b.values = append(b.values, o)
+	return b
+}
+
+func (b *Builder) EndObject() *Builder {
+	b.currentObject()
+	b.values = b.values[:len(b.values)-1]
+	return b
+}
+
+func (b *Builder) StartArray() *Builder {
+	a := Array{&list.State{}}
+	if b.root == nil {
+		b.root = a
+		b.values = append(b.values, a)
+		return b
 	}
+	b.currentArray().v.Push(a, b.dot)
+	b.values = append(b.values, a)
+	return b
+}
+
+func (b *Builder) EndArray() *Builder {
+	b.currentArray()
+	b.values = b.values[:len(b.values)-1]
+	return b
+}
+
+func (b *Builder) StringValue(s string) String {
+	t := text.NewState()
+	if s != "" {
+		t.Replace(0, 0, s, b.dot)
+	}
+	return String{t}
+}
+
+func (b *Builder) Field(name string, value Value) *Builder {
+	o := b.currentObject()
+	if value == nil {
+		o.v.Insert(name, Null{}, *b.dot)
+	} else {
+		o.v.Insert(name, value, *b.dot)
+	}
+	return b
+}
+
+func (b *Builder) Array(name string, values []Value) *Builder {
+	o := b.currentObject()
+	if values == nil {
+		o.v.Insert(name, Null{}, *b.dot)
+		return b
+	}
+	a := Array{&list.State{}}
+	for _, v := range values {
+		if v == nil {
+			a.v.Push(Null{}, b.dot)
+		} else {
+			a.v.Push(v, b.dot)
+		}
+	}
+	o.v.Insert(name, a, *b.dot)
+	return b
+}
+
+func (b *Builder) StringField(name string, value string) *Builder {
+	return b.Field(name, b.StringValue(value))
+}
+
+func (b *Builder) StringArray(name string, values []string) *Builder {
+	if values == nil {
+		return b.Field(name, nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = b.StringValue(v)
+	}
+	return b.Array(name, vs)
+}
+
+func (b *Builder) BooleanField(name string, value bool) *Builder {
+	return b.Field(name, Boolean(value))
+}
+
+func (b *Builder) BooleanArray(name string, values []bool) *Builder {
+	if values == nil {
+		return b.Field(name, nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Boolean(v)
+	}
+	return b.Array(name, vs)
+}
+
+func (b *Builder) IntField(name string, value int64) *Builder {
+	return b.Field(name, Int(value))
+}
+
+func (b *Builder) IntArray(name string, values []int64) *Builder {
+	if values == nil {
+		return b.Field(name, nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Int(v)
+	}
+	return b.Array(name, vs)
+}
+
+func (b *Builder) FloatField(name string, value float64) *Builder {
+	return b.Field(name, Float(value))
+}
+
+func (b *Builder) FloatArray(name string, values []float64) *Builder {
+	if values == nil {
+		return b.Field(name, nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Float(v)
+	}
+	return b.Array(name, vs)
+}
+
+func (b *Builder) StartObjectField(name string) *Builder {
+	o := Object{&ormap.State{}}
+	b.Field(name, o)
+	b.values = append(b.values, o)
+	return b
+}
+
+func (b *Builder) StartArrayField(name string) *Builder {
+	a := Array{&list.State{}}
+	b.Field(name, a)
+	b.values = append(b.values, a)
+	return b
+}
+
+func (b *Builder) Add(value Value) *Builder {
+	if value == nil {
+		value = Null{}
+	}
+	if b.root == nil {
+		b.root = value
+		return b
+	}
+	b.currentArray().v.Push(value, b.dot)
+	return b
+}
+
+func (b *Builder) AddArray(values []Value) *Builder {
+	var v Value
+	if values == nil {
+		v = Null{}
+	} else {
+		a := Array{&list.State{}}
+		for _, v := range values {
+			if v == nil {
+				a.v.Push(Null{}, b.dot)
+			} else {
+				a.v.Push(v, b.dot)
+			}
+		}
+		v = a
+	}
+	if b.root == nil {
+		b.root = v
+		return b
+	}
+	b.currentArray().v.Push(v, b.dot)
+	return b
+}
+
+func (b *Builder) AddString(value string) *Builder {
+	return b.Add(b.StringValue(value))
+}
+
+func (b *Builder) AddStringArray(values []string) *Builder {
+	if values == nil {
+		return b.Add(nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = b.StringValue(v)
+	}
+	return b.AddArray(vs)
+}
+
+func (b *Builder) AddBoolean(value bool) *Builder {
+	return b.Add(Boolean(value))
+}
+
+func (b *Builder) AddBooleanArray(values []bool) *Builder {
+	if values == nil {
+		return b.Add(nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Boolean(v)
+	}
+	return b.AddArray(vs)
+}
+
+func (b *Builder) AddInt(value int64) *Builder {
+	return b.Add(Int(value))
+}
+
+func (b *Builder) AddIntArray(values []int64) *Builder {
+	if values == nil {
+		return b.Add(nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Int(v)
+	}
+	return b.AddArray(vs)
+}
+
+func (b *Builder) AddFloat(value float64) *Builder {
+	return b.Add(Float(value))
+}
+
+func (b *Builder) AddFloatArray(values []float64) *Builder {
+	if values == nil {
+		return b.Add(nil)
+	}
+	vs := make([]Value, len(values))
+	for i, v := range values {
+		vs[i] = Float(v)
+	}
+	return b.AddArray(vs)
+}
+
+func (b *Builder) currentObject() *Object {
+	var o *Object
+	if len(b.values) != 0 {
+		v := b.values[len(b.values)-1]
+		if x, ok := v.(Object); ok {
+			o = &x
+		}
+	}
+	if o == nil {
+		panic("No current object")
+	}
+	return o
+}
+
+func (b *Builder) currentArray() *Array {
+	var a *Array
+	if len(b.values) != 0 {
+		v := b.values[len(b.values)-1]
+		if x, ok := v.(Array); ok {
+			a = &x
+		}
+	}
+	if a == nil {
+		panic("No current array")
+	}
+	return a
+}
+
+func (b *Builder) build() (Value, error) {
+	if b.root == nil {
+		return nil, errors.New("Empty builder")
+	}
+	if len(b.values) != 0 {
+		return nil, fmt.Errorf("%d objects or arrays not ended", len(b.values))
+	}
+	return b.root, nil
 }
 
 type Object struct {
@@ -166,22 +401,6 @@ func (i Int) String() string {
 	return fmt.Sprint(int64(i))
 }
 
-type Uint uint64
-
-func (u Uint) Value() interface{} {
-	return uint64(u)
-}
-
-func (u Uint) clone() Value {
-	return u
-}
-
-func (Uint) isValue() {}
-
-func (u Uint) String() string {
-	return fmt.Sprint(uint64(u))
-}
-
 type Float float64
 
 func (f Float) Value() interface{} {
@@ -213,5 +432,3 @@ func (Null) isValue() {}
 func (Null) String() string {
 	return "null"
 }
-
-var null = Null{}

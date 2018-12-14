@@ -3,7 +3,6 @@ package json
 import (
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/chrsan/go/crdt"
 	"github.com/chrsan/go/crdt/list"
@@ -15,7 +14,7 @@ type State struct {
 	v Value
 }
 
-func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer []interface{}) (Op, error) {
+func (s *State) Insert(value Value, dot *crdt.Dot, pointer []interface{}) (Op, error) {
 	if len(pointer) == 0 {
 		return Op{nil, nil}, errors.New("Empty pointer")
 	}
@@ -25,17 +24,13 @@ func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer []interface{}) 
 	if err != nil {
 		return Op{nil, nil}, err
 	}
-	n, err := toValue(reflect.ValueOf(value), dot)
-	if err != nil {
-		return Op{nil, nil}, err
-	}
 	switch x := v.(type) {
 	case Object:
 		key, ok := p.(string)
 		if !ok {
 			return Op{nil, nil}, fmt.Errorf("Expected string key, got %T", p)
 		}
-		op := x.v.Insert(key, n, *dot)
+		op := x.v.Insert(key, value, *dot)
 		return Op{remotePointer, InnerObjectOp(op)}, nil
 	case Array:
 		i, ok := p.(int)
@@ -45,7 +40,7 @@ func (s *State) Insert(value interface{}, dot *crdt.Dot, pointer []interface{}) 
 		if i < 0 || i >= x.v.Len() {
 			return Op{nil, nil}, fmt.Errorf("Invalid array index: %d", i)
 		}
-		op := x.v.Insert(i, n, dot)
+		op := x.v.Insert(i, value, dot)
 		return Op{remotePointer, InnerArrayOp{op}}, nil
 	default:
 		return Op{nil, nil}, fmt.Errorf("%v does not exist", pointer)
@@ -56,8 +51,8 @@ func (s *State) Remove(pointer []interface{}) (Op, error) {
 	if len(pointer) == 0 {
 		return Op{nil, nil}, errors.New("Empty pointer")
 	}
-	p := pointer[0]
-	pointer = pointer[1:]
+	p := pointer[len(pointer)-1]
+	pointer = pointer[:len(pointer)-1]
 	v, remotePointer, err := s.nestedLocal(pointer)
 	if err != nil {
 		return Op{nil, nil}, err
@@ -227,11 +222,6 @@ func (s *State) Eq(state *State) bool {
 		return false
 	case Int:
 		if y, ok := state.v.(Int); ok {
-			return x == y
-		}
-		return false
-	case Uint:
-		if y, ok := state.v.(Uint); ok {
 			return x == y
 		}
 		return false

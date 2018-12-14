@@ -3,7 +3,6 @@ package json
 import (
 	"encoding/json"
 	"io"
-	"reflect"
 	"strings"
 
 	"github.com/chrsan/go/crdt/ormap"
@@ -19,14 +18,13 @@ type JSON struct {
 	summary *crdt.Summary
 }
 
-func New(siteID crdt.SiteID, value interface{}) (*JSON, error) {
+func FromBuilder(siteID crdt.SiteID, f func(*Builder)) (*JSON, error) {
 	crdt.CheckSiteID(siteID)
 	summary := crdt.NewSummary()
 	dot := summary.Dot(siteID)
-	if value == nil {
-		return &JSON{siteID, &State{null}, summary}, nil
-	}
-	v, err := toValue(reflect.ValueOf(value), &dot)
+	b := Builder{dot: &dot}
+	f(&b)
+	v, err := b.build()
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +38,17 @@ func FromString(siteID crdt.SiteID, s string) (*JSON, error) {
 	dec := json.NewDecoder(strings.NewReader(s))
 	dec.UseNumber()
 	inKey := false
-	var keyStack []string
-	var valueStack []Value
+	var keys []string
+	var values []Value
 	push := func(v Value) {
-		x := valueStack[len(valueStack)-1]
+		x := values[len(values)-1]
 		if arr, ok := x.(Array); ok {
 			arr.v.Push(v, &dot)
 		} else {
 			inKey = true
 			obj := x.(Object)
-			key := keyStack[len(keyStack)-1]
-			keyStack = keyStack[:len(keyStack)-1]
+			key := keys[len(keys)-1]
+			keys = keys[:len(keys)-1]
 			obj.v.Insert(key, v, dot)
 		}
 	}
@@ -67,19 +65,19 @@ func FromString(siteID crdt.SiteID, s string) (*JSON, error) {
 			switch x {
 			case '{':
 				inKey = true
-				valueStack = append(valueStack, Object{&ormap.State{}})
+				values = append(values, Object{&ormap.State{}})
 			case '}':
-				if len(valueStack) != 1 {
-					v := valueStack[len(valueStack)-1]
-					valueStack = valueStack[:len(valueStack)-1]
+				if len(values) > 1 {
+					v := values[len(values)-1]
+					values = values[:len(values)-1]
 					push(v)
 				}
 			case '[':
-				valueStack = append(valueStack, Array{&list.State{}})
+				values = append(values, Array{&list.State{}})
 			case ']':
-				if len(valueStack) != 1 {
-					v := valueStack[len(valueStack)-1]
-					valueStack = valueStack[:len(valueStack)-1]
+				if len(values) > 1 {
+					v := values[len(values)-1]
+					values = values[:len(values)-1]
 					push(v)
 				}
 			}
@@ -92,40 +90,40 @@ func FromString(siteID crdt.SiteID, s string) (*JSON, error) {
 				i, _ := x.Int64()
 				v = Int(i)
 			}
-			if len(valueStack) == 0 {
+			if len(values) == 0 {
 				return &JSON{siteID, &State{v}, summary}, nil
 			}
 			push(v)
 		case string:
 			if inKey {
 				inKey = false
-				keyStack = append(keyStack, x)
+				keys = append(keys, x)
 				continue
 			}
 			t := text.NewState()
 			if x != "" {
 				t.Replace(0, 0, x, &dot)
 			}
-			if len(valueStack) == 0 {
+			if len(values) == 0 {
 				return &JSON{siteID, &State{String{t}}, summary}, nil
 			}
 			push(String{t})
 		case bool:
-			if len(valueStack) == 0 {
+			if len(values) == 0 {
 				return &JSON{siteID, &State{Boolean(x)}, summary}, nil
 			}
 			push(Boolean(x))
 		case nil:
-			if len(valueStack) == 0 {
-				return &JSON{siteID, &State{null}, summary}, nil
+			if len(values) == 0 {
+				return &JSON{siteID, &State{Null{}}, summary}, nil
 			}
-			push(null)
+			push(Null{})
 		}
 	}
-	if len(valueStack) == 0 {
+	if len(values) == 0 {
 		return nil, nil
 	}
-	return &JSON{siteID, &State{valueStack[0]}, summary}, nil
+	return &JSON{siteID, &State{values[0]}, summary}, nil
 }
 
 func (j *JSON) Len(pointer ...interface{}) (int, error) {
@@ -145,9 +143,20 @@ func (j *JSON) Len(pointer ...interface{}) (int, error) {
 	}
 }
 
-func (j *JSON) Insert(value interface{}, pointer ...interface{}) (Op, error) {
+func (j *JSON) Insert(value Value, pointer ...interface{}) (Op, error) {
 	dot := j.summary.Dot(j.siteID)
 	return j.state.Insert(value, &dot, pointer)
+}
+
+func (j *JSON) InsertBuilder(f func(*Builder), pointer ...interface{}) (Op, error) {
+	dot := j.summary.Dot(j.siteID)
+	b := Builder{dot: &dot}
+	f(&b)
+	v, err := b.build()
+	if err != nil {
+		return Op{nil, nil}, err
+	}
+	return j.state.Insert(v, &dot, pointer)
 }
 
 func (j *JSON) Remove(pointer ...interface{}) (Op, error) {
@@ -188,6 +197,9 @@ func (j *JSON) Value(pointer ...interface{}) (interface{}, error) {
 	v, err := j.state.NestedValue(pointer)
 	if err != nil {
 		return nil, err
+	}
+	if v == nil {
+		return nil, nil
 	}
 	return v.Value(), nil
 }

@@ -56,11 +56,13 @@ func TestFromString(t *testing.T) {
 }
 
 func TestObjectInsert(t *testing.T) {
-	j, err := New(1, map[string]interface{}{})
+	j, err := FromBuilder(1, func(b *Builder) {
+		b.StartObject().EndObject()
+	})
 	assert.NoError(t, err)
-	op1, err := j.Insert(map[string]float64{"bar": 3.5}, "foo")
+	op1, err := j.InsertBuilder(func(b *Builder) { b.StartObject().FloatField("bar", 3.5).EndObject() }, "foo")
 	assert.NoError(t, err)
-	op2, err := j.Insert(true, "foo", "baz")
+	op2, err := j.Insert(Boolean(true), "foo", "baz")
 	assert.NoError(t, err)
 	assert.EqualValues(t, 3, j.summary.Counter(1))
 	v, err := j.Value("foo", "bar")
@@ -76,6 +78,64 @@ func TestObjectInsert(t *testing.T) {
 
 func TestObjectInsertInvalidPointer(t *testing.T) {
 	j, _ := FromString(1, "{}")
-	_, err := j.Insert(map[string]float64{"bar": 3.5}, "foo", "bar")
+	_, err := j.InsertBuilder(func(b *Builder) { b.StartObject().FloatField("bar", 3.5).EndObject() }, "foo", "bar")
 	assert.Error(t, err)
+}
+
+func TestObjectInsertReplacesValue(t *testing.T) {
+	j, _ := FromString(1, "{}")
+	_, err := j.Insert(Float(19.7), "foo")
+	assert.NoError(t, err)
+	op, err := j.Insert(Float(4.6), "foo")
+	assert.NoError(t, err)
+	assert.EqualValues(t, 3, j.summary.Counter(1))
+	v, err := j.Value("foo")
+	assert.NoError(t, err)
+	assert.EqualValues(t, 4.6, v)
+	assert.Nil(t, op.Pointer)
+	assert.IsType(t, InnerObjectOp{}, op.Inner)
+	inner := op.Inner.(InnerObjectOp)
+	assert.Equal(t, "foo", inner.Key)
+	assert.NotNil(t, inner.InsertedElement)
+	assert.Equal(t, crdt.Dot{SiteID: 1, Counter: 3}, inner.InsertedElement.Dot)
+	assert.EqualValues(t, 4.6, inner.InsertedElement.Value)
+	assert.Equal(t, []crdt.Dot{crdt.Dot{SiteID: 1, Counter: 2}}, inner.RemovedDots)
+}
+
+func TestObjectInsertSameValue(t *testing.T) {
+	j, _ := FromString(1, "{}")
+	_, err := j.Insert(Float(19.7), "foo")
+	assert.NoError(t, err)
+	_, err = j.Insert(Float(19.7), "foo")
+	assert.NoError(t, err)
+	v, err := j.Value("foo")
+	assert.NoError(t, err)
+	assert.EqualValues(t, 19.7, v)
+}
+
+func TestObjectRemove(t *testing.T) {
+	j, err := FromBuilder(1, func(b *Builder) {
+		b.StartObject()
+		b.StartArrayField("abc")
+		b.AddFloat(1.5)
+		b.AddBoolean(true)
+		b.StartObject()
+		b.BooleanField("def", false)
+		b.EndObject()
+		b.EndArray()
+		b.EndObject()
+	})
+	assert.NoError(t, err)
+	op, err := j.Remove("abc", 2, "def")
+	assert.NoError(t, err)
+	v, err := j.Value("abc", 2, "def")
+	assert.NoError(t, err)
+	assert.Nil(t, v)
+	assert.Len(t, op.Pointer, 2)
+	assert.Equal(t, ObjectUID{Key: "abc", Dot: crdt.Dot{SiteID: 1, Counter: 1}}, op.Pointer[0])
+	assert.IsType(t, ArrayUID{}, op.Pointer[1])
+	inner := op.Inner.(InnerObjectOp)
+	assert.Equal(t, "def", inner.Key)
+	assert.Nil(t, inner.InsertedElement)
+	assert.Equal(t, []crdt.Dot{crdt.Dot{SiteID: 1, Counter: 1}}, inner.RemovedDots)
 }
